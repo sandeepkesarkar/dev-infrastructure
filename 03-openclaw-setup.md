@@ -224,6 +224,12 @@ Walk through the prompts as follows:
 
 The terminal will then show the agent's bootstrap prompt — see Step 3's verify section for how to respond to it.
 
+> **If the Gateway isn't running after the wizard:** Run `openclaw gateway status` — if it shows `Service: LaunchAgent (not loaded)` or `Service not installed`, the wizard configured the service but didn't register it with launchd. Fix it with:
+> ```bash
+> openclaw gateway install
+> ```
+> Then verify with `openclaw gateway status` — you should see `loaded/running`.
+
 **Verify the Gateway is only listening on localhost:**
 
 The Gateway should not be reachable from other machines on your network. Check what address it's bound to:
@@ -252,6 +258,16 @@ openclaw gateway stop
 ```
 
 The daemon will restart automatically on next login since it is installed as a launchd service.
+
+**Accessing the dashboard:**
+
+The Gateway includes a browser dashboard for monitoring active channels and message flow. Do not open `http://127.0.0.1:18789` directly — it requires a token that must be embedded in the URL. Use this command instead:
+
+```bash
+openclaw dashboard
+```
+
+It prints a tokenized URL. Open that URL in your browser.
 
 ---
 
@@ -307,5 +323,6 @@ Sandboxing setup is covered in a separate guide. Until then, keep OpenClaw to pr
 - [ ] `openclaw onboard --install-daemon` wizard completed — Telegram token entered, daemon restarted
 - [ ] Bootstrap prompt answered — agent responds normally to messages
 - [ ] `lsof -i :18789 | grep LISTEN` shows `localhost:18789` or `127.0.0.1:18789`, not `*:18789`
+- [ ] `openclaw dashboard` prints a tokenized URL that opens the Gateway dashboard in the browser
 - [ ] `openclaw pairing approve telegram <CODE>` completed
 - [ ] Sending a message to your Telegram bot returns an AI reply
