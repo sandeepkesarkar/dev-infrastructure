@@ -66,10 +66,16 @@ Swap the agent runtime from OpenClaw to Hermes (`github.com/NousResearch/hermes-
 - **Interim home:** Hermes runs on the Mac Mini for development; OpenClaw gets uninstalled.
 - **Model providers:** Anthropic by default; OpenAI supported as a per-client configuration choice. Everything else identical between providers.
 - **Demo customers:** Create two demo customers as first-class FieldKit artifacts — one Anthropic-backed, one OpenAI-backed — under the Option C monorepo model (each gets its own complete spec-kit instance). Every future capability gets tested against both.
-- **Governance parity:** All existing human-in-the-loop approvals preserved (customer-facing content approval, daily API budget caps, privacy rules: EXIF stripping, no location data, PII detection).
-- **Email channel:** Open question — Gmail API polling (original Phase 1 spec) vs. Hermes native email gateway. To be discussed when planning the feature. Deciding principle: **easier to manage in the long run wins.**
+- **Governance parity:** All existing human-in-the-loop approvals preserved (customer-facing content approval). **Correction from spec drafting:** daily API budget caps and EXIF/GPS-stripping privacy rules turned out to have no implementation anywhere in fieldkit today, under OpenClaw or otherwise — "parity" for those two was aspirational, not real behavior to preserve. Flagged as known, runtime-independent gaps in the spec; not blocking W1.
+- **Email channel:** ~~Open question~~ **Decided** — keep the current deterministic, no-LLM gate-and-acknowledge design (Hermes's native email gateway is LLM-in-the-loop by design, which conflicts with the existing email-agent spec's explicit "no AI/LLM processing" scope).
 - **Definition of done:** At minimum, the current system working on Hermes (parity).
 - **Execution:** The Hermes swap itself is executed *through* the new GitHub task workflow (dogfooding from day one).
+- **Swap scope, decided:** narrow — only OpenClaw's actual footprint (Telegram gateway + on-demand skill dispatch for `process_photos`/`check_approval`). The cron-triggered scripts (`check_email`, `check_approval`'s cron leg, `upload_facebook`) already call `python3` directly with zero OpenClaw dependency and stay untouched.
+- **Constitution alignment, decided:** in scope for this spec. `constitution.md`'s Architecture Constraints still say `Runtime: OpenClaw`, `No cloud AI inference — all LLM work runs locally` (already false — OpenClaw calls the OpenAI API today), and describe the retired Mac-Mini-per-client ownership model. The Hermes spec updates these, plus the stale "Mac Mini... transferred to client" / "no cloud storage" boilerplate baked into fieldkit's own spec-kit override template.
+
+**Spec drafted:** [fieldkit/platform/.specify/003-hermes-runtime/spec.md](https://github.com/sandeepkesarkar/fieldkit/blob/main/platform/.specify/003-hermes-runtime/spec.md), 2026-08-13. Committed in fieldkit.
+
+**Decomposed into issues:** 2026-08-13. First hand decomposition through the Foundation workflow (the decomposition skill doesn't exist yet — see [specs/github-task-workflow.md](specs/github-task-workflow.md) bootstrapping note). 10 issues filed on fieldkit, all labeled `agent-ready`: [#5](https://github.com/sandeepkesarkar/fieldkit/issues/5) install Hermes → [#6](https://github.com/sandeepkesarkar/fieldkit/issues/6) gateway+model routing → [#7](https://github.com/sandeepkesarkar/fieldkit/issues/7)/[#8](https://github.com/sandeepkesarkar/fieldkit/issues/8) rewrite the two skills → [#9](https://github.com/sandeepkesarkar/fieldkit/issues/9)/[#10](https://github.com/sandeepkesarkar/fieldkit/issues/10) docs (constitution, template) → [#11](https://github.com/sandeepkesarkar/fieldkit/issues/11)/[#12](https://github.com/sandeepkesarkar/fieldkit/issues/12) demo customers → [#13](https://github.com/sandeepkesarkar/fieldkit/issues/13) parity verification → [#14](https://github.com/sandeepkesarkar/fieldkit/issues/14) uninstall OpenClaw. Omnigent confirmed already installed (v0.8.2) with Anthropic/OpenAI/local-Ollama credentials configured — Polly can be dispatched manually against these now; no scheduled poller set up yet.
 
 ---
 
@@ -152,4 +158,5 @@ Integrate the `salestools-analyst` repo (locally-run sales-data Q&A assistant us
 4. Demo customer names
 5. W3 account-ownership model
 6. W4 inference hosting location
-7. Email channel mechanism for Phase 1 under Hermes (Gmail API vs. Hermes gateway)
+7. ~~Email channel mechanism for Phase 1 under Hermes (Gmail API vs. Hermes gateway)~~ **Decided** — keep the current deterministic, no-LLM design; do not adopt Hermes's native (LLM-in-the-loop) email gateway for this component
+8. Demo customer credentials/setup for the two Hermes demo customers (Anthropic-backed, OpenAI-backed) — names still needed (item 4) plus actual account setup
