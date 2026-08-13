@@ -83,6 +83,8 @@ Adopt Omnigent (`github.com/omnigent-ai/omnigent`, alpha v0.3.0) on the Mac Mini
 - Testing done privately first; LinkedIn article about it planned for later.
 - Note for later: Omnigent can run Hermes as a harness — W1/W2 intersection exists but workstreams stay separate.
 
+**Spec drafted:** [specs/omnigent-setup.md](specs/omnigent-setup.md), 2026-08-13. Pending review. Adopts Omnigent's shipped Polly agent as the orchestrator rather than building one from scratch; Omnigent's native scheduler implements the Foundation spec's FR-004 polling requirement, tying W2 to the Foundation workstream at that point.
+
 ---
 
 ### W3 — Cloud Setup Per Vendor (new open-source repo)

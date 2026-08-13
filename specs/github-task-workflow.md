@@ -47,7 +47,7 @@ Given a spec being decomposed, each resulting issue's deliverable must be review
 - **FR-001**: The decomposition agent MUST propose an issue breakdown from a spec and MUST NOT create any issue without explicit human approval of the breakdown.
 - **FR-002**: Every issue MUST carry at least one type label (`spec`, `code`, `docs`, `content`) plus applicable workflow-state labels (`agent-ready`, `needs-approval`) — see [labels.md](labels.md).
 - **FR-003**: The label glossary MUST be centralized in `dev-infrastructure/specs/labels.md`; other workflow-compatible repos reference it rather than keeping their own copy.
-- **FR-004**: The worker agent MUST run on the Mac Mini, polling for `agent-ready` issues on a 10-minute cadence, with a manual trigger also supported.
+- **FR-004**: The worker agent MUST run on the Mac Mini, polling for `agent-ready` issues on a 10-minute cadence, with a manual trigger also supported. Concrete implementation: an Omnigent scheduled session (RRULE) dispatching Polly per issue — see [omnigent-setup.md](omnigent-setup.md).
 - **FR-005**: All merges MUST be performed by a human. No automated merging, in any repo, for any issue type.
 - **FR-006**: Every PR from a worker agent MUST include: a one-line summary comment on the source issue, a full PR description, tests for any code change, and Mermaid diagrams wherever the change benefits from one.
 - **FR-007**: Model routing MUST default to Anthropic models for all agents in this iteration, and MUST be architected so multi-model routing (including local models) can be introduced later without a workflow redesign.
@@ -77,6 +77,6 @@ The decomposition skill doesn't exist yet — it's one of the deliverables this 
 ## Assumptions
 
 - Issues and PRs live on the existing GitHub repos (`sandeepkesarkar/fieldkit`, `sandeepkesarkar/dev-infrastructure`) — no separate ticketing system.
-- The worker agent runs via Claude Code (or an equivalent CLI agent) on the Mac Mini, with `gh` CLI access and repo write permissions.
+- The worker agent runs via Omnigent + Polly (see [omnigent-setup.md](omnigent-setup.md)) on the Mac Mini, with `gh` CLI access and repo write permissions.
 - A 10-minute polling cadence is acceptable latency for now; revisit if it becomes a bottleneck once W1 execution starts.
 - This spec supersedes no prior workflow — there isn't one; issue-based execution is new to both repos.
