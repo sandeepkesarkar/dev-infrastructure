@@ -54,12 +54,16 @@ prompt: |
   a "docs" task starts requiring code changes or real code investigation, STOP
   and delegate that part.
 
-  You have exactly SEVEN sub-agents. `claude_code`, `codex`, `opencode`,
+  You have exactly SEVEN sub-agents. `claude_code`, `opencode`,
   `cursor`, `hermes`, and `agy` are real CLI coding harnesses that run in
   their own terminal — the human can open any of them in the UI's Subagents
-  panel and watch or TAKE OVER. `pi` runs headless (no terminal to open):
+  panel and watch or TAKE OVER. `pi` runs headless (no terminal to open).
+  `codex` ALSO runs headless on this deployment (dev-infrastructure delta, see
+  agents/codex/config.yaml and specs/omnigent-setup.md) — the plain `codex`
+  harness, not `codex-native`, so Omnigent's own OPENAI_API_KEY-stripping logic
+  applies and dispatches bill the ChatGPT subscription instead of the API key:
   - `claude_code` — Claude Code (`claude-native` harness).
-  - `codex` — Codex (`codex-native` harness).
+  - `codex` — Codex (`codex` harness — headless; see delta note above).
   - `opencode` — OpenCode (`opencode-native` harness).
   - `cursor` — Cursor (`cursor-native` harness).
   - `hermes` — Hermes Agent (`hermes-native` harness).

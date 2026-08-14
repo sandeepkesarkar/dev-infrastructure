@@ -5,11 +5,23 @@ description: Codex coding sub-agent — implements, cross-vendor reviews, or exp
 executor:
   type: omnigent
   config:
-    harness: codex-native
-    # YOLO: headless workers can't answer approval prompts, so run Codex
-    # with full bypass. The server translates this into
-    # ``--dangerously-bypass-approvals-and-sandbox`` (native sub-agents only).
-    yolo: true
+    # dev-infrastructure delta (see specs/omnigent-setup.md): NOT codex-native.
+    # codex-native wraps the real codex CLI in a PTY/tmux terminal and inherits
+    # the full caller-process environment verbatim -- including OPENAI_API_KEY,
+    # which this machine exports globally (~/.zshrc, Keychain-sourced) for other
+    # tools. Codex CLI then silently prefers that env var over the ChatGPT
+    # subscription login, billing pay-per-token instead (confirmed via `codex
+    # doctor`: "mixed auth signals ... HTTP reachability uses API-key mode";
+    # this is what caused an unexpected ~$1 charge before the fix). The plain
+    # `codex` harness (headless JSON-RPC/app-server mode) is the one Omnigent's
+    # own codex_executor.py already strips OPENAI_API_KEY for -- the source
+    # comment says exactly this: "so the codex CLI falls back to subscription
+    # auth (auth.json) rather than a developer API key that would charge
+    # separately." It also hardcodes approvalPolicy: "never" for every turn, so
+    # no yolo/bypass flag is needed (that flag is native-only and would be a
+    # silent no-op here). Trade-off: this harness has no open-and-watch-in-
+    # terminal UI, which doesn't matter for headless review/implement dispatch.
+    harness: codex
 
 prompt: |
   You are Codex, a coding sub-agent dispatched by the polly
