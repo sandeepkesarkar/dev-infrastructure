@@ -37,7 +37,7 @@ Given I approve the breakdown, when I confirm, then the skill creates the issues
 Given an issue labeled `agent-ready`, when the polling agent runs (every 10 minutes on the Mac Mini, or is triggered manually), then it claims the issue, does the work, and opens a PR that references the issue.
 
 ### 3. Human reviews and merges (P1)
-Given an open PR from a worker agent, when I review it, then I can read a one-line summary comment on the issue and a full PR description, see tests included for any code change, and see Mermaid diagrams wherever the change benefits from one (GitHub renders these natively). I merge by hand; there is no auto-merge path.
+Given an open PR from a worker agent, when I review it, then I can read a one-line summary comment on the issue and a full PR description, see tests included for any code change, see Mermaid diagrams wherever the change benefits from one (GitHub renders these natively), and — for code PRs — see a cross-vendor (Codex) review comment covering Engineering and Security already posted. I merge by hand; there is no auto-merge path.
 
 ### 4. Issue sizing (P2)
 Given a spec being decomposed, each resulting issue's deliverable must be reviewable by a human in under 15 minutes. This is the sizing heuristic the decomposition agent applies.
@@ -54,6 +54,7 @@ Given a spec being decomposed, each resulting issue's deliverable must be review
 - **FR-008**: "Detailed comments," "tests included" (code issues), and "Mermaid diagrams where applicable" MUST appear as standing acceptance criteria on every issue the decomposition agent creates — not just as an informal norm.
 - **FR-009**: The spec→issues capability MUST be packaged as a reusable, invocable skill/command — the front door to this workflow — usable from `fieldkit`, `dev-infrastructure`, and future workflow-compatible repos.
 - **FR-010**: The workflow MUST handle non-code deliverables (specs, docs, content) through the same issue-based flow, distinguished only by label.
+- **FR-011**: Every code PR MUST carry a cross-vendor review (from a vendor other than the implementer, covering at minimum Engineering and Security) before being labeled `needs-approval`. Concrete implementation: Polly's Codex-reviewer dispatch against the review contract — see [omnigent-setup.md](omnigent-setup.md).
 
 ## Key Entities
 
@@ -69,6 +70,7 @@ Given a spec being decomposed, each resulting issue's deliverable must be review
 - **SC-003**: Every merged PR was reviewable in under 15 minutes (spot-checked against the sizing heuristic).
 - **SC-004**: Zero auto-merges — every merge in the GitHub audit log has a human actor.
 - **SC-005**: This spec is itself decomposed into issues and executed through the workflow it describes (dogfooding), and the Hermes swap (W1) is the first non-trivial workstream to run entirely through it.
+- **SC-006**: Zero code PRs reach `needs-approval` without a cross-vendor review comment already attached.
 
 ## Bootstrapping Note
 
