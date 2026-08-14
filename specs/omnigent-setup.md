@@ -12,7 +12,7 @@ Adopt [Omnigent](https://github.com/omnigent-ai/omnigent) (alpha, v0.3.0) on the
 
 - Personal dev workflow only. Not shipped to clients; does not touch fieldkit's runtime.
 - Runs on the Mac Mini (`servicehub-dev`).
-- Ties directly into the [Foundation GitHub task workflow](github-task-workflow.md): Omnigent's own scheduler implements that spec's FR-004 (10-minute `agent-ready` polling) — see Decisions below.
+- Ties directly into the [Foundation GitHub task workflow](github-task-workflow.md): a launchd job invoking the `poller` agent implements that spec's FR-004 (hourly `agent-ready` polling) — see Decisions below.
 
 ## Out of Scope (this iteration)
 
@@ -24,7 +24,7 @@ Adopt [Omnigent](https://github.com/omnigent-ai/omnigent) (alpha, v0.3.0) on the
 
 - **Motivation is throughput, not a Claude Code complaint.** The goal is model diversity and running as a team, not fixing something broken.
 - **Adopt Polly, don't build from scratch.** Omnigent ships an example orchestrator agent (`examples/polly/`) that already implements the target shape: it writes no code itself, decomposes a goal, delegates every coding task to a sub-agent (`claude_code`, `codex`, `cursor`, `hermes`, `opencode`, `agy`) in its own git worktree, and routes every diff to a **reviewer from a different vendor than the implementer** before it's presented as ready — only implementers open PRs, and Polly never merges. That is the "tech lead reviewing PRs, not writing code" role from the plan, already built and tested upstream. Adopt it as-is; customize only once real usage surfaces a concrete need.
-- **Omnigent's scheduler is the Foundation's polling mechanism.** Omnigent has a native scheduled-tasks feature (RRULE-based recurring sessions). Rather than a separate cron/launchd job, a scheduled Omnigent session polls `agent-ready` issues and dispatches Polly — this is the concrete implementation of [github-task-workflow.md FR-004](github-task-workflow.md).
+- **The polling mechanism is `launchd`, not Omnigent's own scheduled-tasks feature — revised 2026-08-14.** Omnigent does have a native scheduled-tasks feature (RRULE-based recurring sessions via `POST /v1/scheduled-tasks` / `sys_scheduled_task_create`), and that was the original plan. It doesn't work on this deployment: the endpoint requires an authenticated "owner" identity (`require_user`), and this is a single-user local server with no accounts/OIDC login ever configured — every create attempt 401s, including from inside a live agent turn calling the MCP tool directly (not just raw HTTP). Standing up Omnigent's accounts system just to unblock an hourly cron-equivalent felt like solving the wrong problem. Instead: a `launchd` agent (`~/Library/LaunchAgents/ai.omnigent.poller.plist`, `StartInterval: 3600`) runs `omnigent/poller/run_poller.sh`, which fires `omnigent run omnigent/poller/config.yaml -p "..."` hourly — same poller agent, same dispatch-to-Polly behavior, just triggered by the OS scheduler instead of Omnigent's REST API. This is the same mechanism already running Hermes's Telegram gateway on this machine (see fieldkit's `platform/docs/hermes/02-gateway-setup.md`), so it's a known-working pattern here, not a new one. Manual trigger: `bash omnigent/poller/run_poller.sh`.
 - **Local models: `pi`-only for v1.** Of Polly's sub-agents, only `pi` can run an arbitrary gateway model (Ollama, OpenRouter, etc.); the other implementers run their own vendor's models. So local/gateway routing lands on review/explore/search work, not full implementation, for now. Broader local-model implementation is deferred, not ruled out.
 - **Configuration is committed, not machine-local.** Polly's config, the poller agent, and policy definitions live in `dev-infrastructure/omnigent/` under version control — consistent with spec-first, framework-first principles.
 - **Hermes note (carried from plan-of-record):** Omnigent can run Hermes as a harness (`omnigent hermes`). W1 and W2 intersect at that point, but stay separate workstreams — W2 doesn't change W1's fieldkit runtime decisions.
@@ -39,7 +39,7 @@ Adopt [Omnigent](https://github.com/omnigent-ai/omnigent) (alpha, v0.3.0) on the
 ### Components
 
 1. **Polly** (`examples/polly/`) — the orchestrator. Decomposes a goal, delegates implementation to sub-agents in isolated worktrees, routes each diff to a different-vendor reviewer, reports via the inbox. Never merges.
-2. **Poller** (new, thin) — a scheduled Omnigent session (RRULE, 10-minute cadence, manual trigger also supported) that runs `gh issue list --label agent-ready` across workflow-compatible repos and, for each unclaimed issue, dispatches a Polly session with the issue body as its goal.
+2. **Poller** (`omnigent/poller/`) — a thin agent (`config.yaml`) that runs `gh issue list --label agent-ready` (dev-infrastructure only, per Rollout Phase), claims each issue found (flips `agent-ready` → `in-progress` before dispatching, so a re-fire mid-task is a no-op), and dispatches a fresh `polly` session per issue via `sys_session_create(config_path="omnigent/polly/config.yaml", ...)` — never waits for Polly to finish. Fired hourly by `launchd` (`run_poller.sh`), with a manual-trigger path for on-demand checks.
 3. **Policies** — Omnigent's builtin `cost_budget` (hard cap + soft warning threshold) and `max_tool_calls_per_session`, configured at the server or per-agent level — the same governance shape already required for fieldkit under W1.
 4. **Review contract** (`omnigent/polly/skills/cross-review/SKILL.md`, a `dev-infrastructure`-local override of Polly's bundled skill) — pins the reviewer to Codex and adds the standing Engineering + Security checklist applied on every review dispatch, on top of the task's own acceptance contract.
 
@@ -57,7 +57,7 @@ Given a task described in chat or a claimed GitHub issue, when I (or the poller)
 Given an implementer's PR, when Polly's roster preflight finds at least two available vendors, then a reviewer from a different vendor checks the diff against the task's acceptance contract before the PR is presented as ready. If fewer than two vendors are available, Polly says so explicitly rather than skipping review silently. For fieldkit, the reviewer MUST be Codex specifically (not an arbitrary other vendor, and not whichever of Cursor/Hermes happens to also be installed) — enforced by the `cross-review` skill override, which also applies the standing Engineering + Security checklist. Cross-review loops with the implementer on blocking issues until clean before the PR is marked ready for the human to merge — it isn't a one-shot comment.
 
 ### 3. The poller claims agent-ready issues on a cadence (P1)
-Given an issue labeled `agent-ready` in `fieldkit` or `dev-infrastructure`, when the scheduled poller runs (every 10 minutes, or triggered manually), then it starts a Polly session scoped to that issue and does not re-claim an issue already in flight.
+Given an issue labeled `agent-ready` in `fieldkit` or `dev-infrastructure`, when the scheduled poller runs (hourly, or triggered manually), then it starts a Polly session scoped to that issue and does not re-claim an issue already in flight.
 
 ### 4. Spend stays capped (P2)
 Given a running session, when cumulative cost approaches the configured soft threshold, then I'm asked before continuing; when it hits the hard cap, the session stops.
@@ -69,7 +69,7 @@ Given a running session, when cumulative cost approaches the configured soft thr
 - **FR-003**: Polly's sub-agent roster MUST default to Anthropic-backed harnesses; other vendor CLIs are used opportunistically for cross-vendor review where installed, not required for v1 — **except Codex, which is required** (see FR-010).
 - **FR-010**: Codex CLI MUST be installed and authenticated via `OPENAI_API_KEY` (not ChatGPT-subscription login) on any machine running Polly, so roster preflight finds it. For workflow-compatible repos (starting with fieldkit), Codex MUST be the reviewer for every implementer-authored PR.
 - **FR-011**: Every cross-vendor review dispatch MUST apply the Standing review dimensions section of `omnigent/polly/skills/cross-review/SKILL.md` (this deployment's override of Polly's bundled skill) in addition to the task's own acceptance contract. New review dimensions are added by editing that section; no change to Polly's config or dispatch logic is required.
-- **FR-004**: A scheduled Omnigent session (RRULE, 10-minute cadence, manual trigger supported) MUST poll `agent-ready` issues across workflow-compatible repos and dispatch one Polly session per issue. This satisfies [github-task-workflow.md FR-004](github-task-workflow.md); no separate cron/launchd mechanism is used.
+- **FR-004**: A launchd-scheduled job (hourly, `~/Library/LaunchAgents/ai.omnigent.poller.plist`) MUST fire the `poller` agent, which polls `agent-ready` issues across workflow-compatible repos and dispatches one Polly session per issue, with a manual-trigger script also available. This satisfies [github-task-workflow.md FR-004](github-task-workflow.md); Omnigent's own scheduled-tasks feature was tried first and abandoned — see Decisions.
 - **FR-005**: `pi` MUST be configured with a local or gateway model (e.g. Ollama) available for review/explore/search dispatches.
 - **FR-006**: Cost governance MUST be configured via Omnigent's builtin `cost_budget` policy (hard cap + soft warning threshold) at the server or agent level.
 - **FR-007**: Every implementer-authored PR MUST carry a co-author trailer identifying it as agent-produced, consistent with the Foundation spec's FR-006 narration requirement.
@@ -79,13 +79,13 @@ Given a running session, when cumulative cost approaches the configured soft thr
 ## Key Entities
 
 - **Polly session** — one orchestrator run against one goal (a chat-provided task or a claimed issue); owns delegation, review routing, and inbox reporting.
-- **Poller session** — the scheduled Omnigent session that turns `agent-ready` issues into Polly dispatches.
+- **Poller session** — the launchd-fired `poller` agent run that turns `agent-ready` issues into Polly dispatches.
 - **Policy** — a cost/tool-call governance rule applied server-wide, per-agent, or per-session.
 
 ## Success Criteria
 
 - **SC-001**: A dev task goes from "described to Polly" to "PR open, cross-vendor reviewed" without me writing code directly.
-- **SC-002**: The poller correctly claims and dispatches `agent-ready` issues on the Foundation's 10-minute cadence without manual intervention.
+- **SC-002**: The poller correctly claims and dispatches `agent-ready` issues on an hourly cadence without manual intervention.
 - **SC-003**: At least one review/explore task per week runs on a local/gateway model via `pi`, measurably reducing Claude/OpenAI token spend.
 - **SC-004**: No session exceeds its configured cost cap without an explicit approval.
 - **SC-005**: This spec is itself decomposed into issues and executed through the Foundation workflow (dogfooding continues).
