@@ -17,6 +17,12 @@
 # submodule bumps — re-sync it by diffing against
 # .agents/agent-dev-kit/config.yaml and re-applying the cost_budget block
 # below (everything else should be a straight copy).
+#
+# TODO: this manual re-sync is a real drift risk (nothing catches this file
+# silently falling behind the submodule between bumps). Worth a CI check
+# that diffs this file against .agents/agent-dev-kit/config.yaml with the
+# guardrails.policies.cost_budget block normalized out, failing on any other
+# difference — not built yet.
 spec_version: 1
 name: polly
 description: >-
