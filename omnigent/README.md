@@ -1,101 +1,72 @@
 # omnigent/
 
-This directory holds our committed copy of [Omnigent](https://github.com/omnigent-ai/omnigent)'s
-Polly orchestrator config and skills — vendored from the installed `omnigent`
-package, with two intentional deltas from upstream.
+This directory holds Polly's orchestrator config for this deployment, wired
+up to [agent-dev-kit](https://github.com/sandeepkesarkar/agent-dev-kit) —
+the generic, reusable version of this same workflow — via a git submodule at
+`.agents/agent-dev-kit`.
 
-## Why this is committed, not machine-local
-
-Omnigent normally expects agent config under `~/.omnigent/`, a machine-local
-install artifact. We deliberately vendor it into `dev-infrastructure/omnigent/`
-instead and put it under version control.
-
-Per `specs/omnigent-setup.md` ("Configuration is committed, not machine-local",
-FR-008): Polly's config and policy definitions live here so they're
-spec-first and framework-first — reviewable, diffable, and re-deployable to
-any machine — rather than living only as local state on the Mac Mini that
-runs it. The spec also calls for a poller agent (the scheduled session that
-polls `agent-ready` issues and dispatches Polly, FR-004) to eventually live
-under version control the same way — but as of this writing that piece isn't
-built yet, so it isn't present in this directory. Only Polly's config and
-skills are committed here so far.
-
-## What's here
+## What's here, and why it's split this way
 
 ```
 omnigent/
-├── README.md                          # this file
+├── README.md                # this file
+├── poller/                  # dev-infrastructure-only; agent-dev-kit ships no poller
+│   ├── config.yaml
+│   └── run_poller.sh
 └── polly/
-    ├── config.yaml                    # Polly orchestrator config — HAS a delta, see below
-    ├── agents/
-    │   ├── claude_code/config.yaml    # vendored as-is
-    │   ├── codex/config.yaml          # vendored as-is
-    │   ├── cursor/config.yaml         # vendored as-is
-    │   ├── hermes/config.yaml         # vendored as-is
-    │   ├── opencode/config.yaml       # vendored as-is
-    │   ├── agy/config.yaml            # vendored as-is
-    │   └── pi/config.yaml             # vendored as-is
-    └── skills/
-        ├── investigate/SKILL.md       # vendored as-is
-        ├── fanout/SKILL.md            # vendored as-is
-        └── cross-review/SKILL.md      # HAS a delta, see below
+    ├── config.yaml          # LOCAL — synced copy of the submodule's config.yaml, PLUS
+    │                         # this deployment's cost_budget guardrail (see below)
+    ├── agents -> ../../.agents/agent-dev-kit/agents   # symlink into the submodule
+    └── skills -> ../../.agents/agent-dev-kit/skills   # symlink into the submodule
 ```
 
-Everything under `agents/` and the `investigate` / `fanout` skills are
-unmodified copies of upstream Polly. Only two files carry deltas, and each
-delta is documented inline as a comment at the point of change — this README
-points at them rather than duplicating their content (so they can't drift out
-of sync):
+`.omnigent/config.yaml` points `default_agent` at `omnigent/polly/config.yaml`
+(this local wrapper), not directly at the submodule.
 
-- **`polly/config.yaml`** — the `guardrails.policies.cost_budget` block near
-  the end of the file. See the `# dev-infrastructure delta` comment directly
-  above that block for what it does and why.
-- **`polly/skills/cross-review/SKILL.md`** — see the comment block at the top
-  of the file, which names Procedure step 3 and the entire "Standing review
-  dimensions" section as the only changes from upstream.
+### Why `polly/config.yaml` is a local file, not a pointer at the submodule
 
-Both deltas are explained in more depth, with their rationale, in
-`specs/omnigent-setup.md` (see "Codex is a required reviewer, not
-opportunistic" and the Rollout Phase cost-cap decision).
+Omnigent's bundle loader (`omnigent.spec.parser.parse`) reads exactly one
+`config.yaml` per bundle root — there's no `include`/`extends`/overlay
+mechanism, confirmed by reading `parse()` (a single `yaml.load` call) and by
+`omnigent config`'s own docs (only `default_agent`/`server`/`harness`/
+`model`/`auto_open_conversation` are project-level-overridable keys —
+guardrails aren't one of them). So there is currently no supported way to
+point `default_agent: .agents/agent-dev-kit` straight at the submodule (the
+pattern agent-dev-kit's own README documents for consumers with no local
+guardrail deltas) and still layer a repo-local
+`guardrails.policies.cost_budget` on top. agent-dev-kit ships with **no**
+`cost_budget` on purpose — see its `config.yaml`: "a $ cap is inherently
+personal" — so this deployment's cap (`max_cost_usd: 5.0`, see
+`specs/omnigent-setup.md`'s Rollout Phase) has to live somewhere, and
+`polly/config.yaml` is that somewhere. It is otherwise a straight copy of
+`.agents/agent-dev-kit/config.yaml`; the `cost_budget` block near the end,
+marked with a `# dev-infrastructure delta` comment, is the only intentional
+difference.
 
-## Re-vendoring after an `omnigent upgrade`
+Everything else that used to be vendored here — the two Codex-pinning /
+Standing-review-dimensions deltas that used to live in a locally-forked
+`cross-review/SKILL.md`, and full copies of all seven `agents/*/config.yaml`
+— turned out to already be generalized upstream in agent-dev-kit once it was
+extracted as its own repo (diffed line-for-line to confirm before deleting).
+Those are now symlinks into the submodule instead of local copies, so they
+stay pinned to whatever commit `.agents/agent-dev-kit` is bumped to, with
+zero drift risk on this repo's side.
 
-The source of truth upstream is the installed `omnigent` package's bundled
-Polly example, not a GitHub checkout. Find it by invoking the **uv tool's own
-venv Python**, not the ambient `python3` on `PATH`:
+## Re-syncing `polly/config.yaml` after a submodule bump
 
 ```bash
-~/.local/share/uv/tools/omnigent/bin/python3 -c "import omnigent, os; print(os.path.join(os.path.dirname(omnigent.__file__), 'resources', 'examples', 'polly'))"
+cd .agents/agent-dev-kit && git pull origin main && cd -
+git add .agents/agent-dev-kit
+diff .agents/agent-dev-kit/config.yaml omnigent/polly/config.yaml
 ```
 
-This has to be that specific interpreter: running plain `python3 -c "import
-omnigent; ..."` from this repo's root resolves `omnigent` to *this repo's own
-top-level `omnigent/` directory* as a namespace package (no `__init__.py`
-needed), shadowing the real installed package and returning `None` /
-`TypeError` instead of a real path. The uv-tool venv doesn't have that
-shadowing problem, since this repo isn't on its `sys.path`.
+Pull in any upstream changes, then re-apply (or confirm still present) the
+`# dev-infrastructure delta` header comment and the `cost_budget` block at
+the end — that's the only intentional divergence to preserve.
 
-On this machine (via `uv tool install omnigent`), that command resolves to:
+## Machine-global skills
 
-```
-~/.local/share/uv/tools/omnigent/lib/python3.12/site-packages/omnigent/resources/examples/polly/
-```
-
-To re-sync after an `omnigent upgrade`:
-
-1. Diff the new package's `resources/examples/polly/` against this directory's
-   `omnigent/polly/`, again using the uv-tool venv's own Python:
-   ```bash
-   diff -ru "$(~/.local/share/uv/tools/omnigent/bin/python3 -c "import omnigent, os; print(os.path.join(os.path.dirname(omnigent.__file__), 'resources', 'examples', 'polly'))")" omnigent/polly/
-   ```
-2. Pull in any upstream changes (new/changed agents, new skills, changed
-   defaults), being careful to preserve — or re-apply — the two documented
-   deltas on top:
-   - Re-add the `cost_budget` policy block to `config.yaml` if upstream
-     touched the `guardrails.policies` section.
-   - Re-apply the Codex-pinning changes to `cross-review/SKILL.md` (the
-     header comment, Procedure step 3, and the "Standing review dimensions"
-     section) if upstream changed that skill.
-3. Confirm both delta comments are still present and accurate after the
-   merge — they're what future readers (human or agent) rely on to know
-   these aren't upstream bugs.
+The three skills (`cross-review`, `fanout`, `investigate`) are additionally
+available machine-wide via `~/.agents/skills/<name>` symlinks into a local
+`~/src/agent-dev-kit` checkout, per agent-dev-kit's own README — that's a
+separate, per-machine setup step, not part of this repo.

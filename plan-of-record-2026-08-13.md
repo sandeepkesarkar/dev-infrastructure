@@ -50,7 +50,7 @@ All work moving forward is created as GitHub issues and executed by agents throu
 
 **Repo rename:** `mac-mini-dev-setup` → `dev-infrastructure` (scope grew from machine setup to the whole personal engineering system: machine + Omnigent + GitHub workflow). **Done** — GitHub repo renamed, local remote and directory updated, 2026-08-13.
 
-**Spec drafted:** [specs/github-task-workflow.md](specs/github-task-workflow.md) + [specs/labels.md](specs/labels.md), 2026-08-13. Pending review.
+**Spec drafted:** [specs/github-task-workflow.md](specs/github-task-workflow.md) + `specs/labels.md`, 2026-08-13. Pending review. (`specs/labels.md` was later generalized upstream into `agent-dev-kit` and this repo's local copy removed — see [.agents/agent-dev-kit/specs/labels.md](.agents/agent-dev-kit/specs/labels.md).)
 
 ---
 
@@ -152,7 +152,7 @@ Integrate the `salestools-analyst` repo (locally-run sales-data Q&A assistant us
 
 ## Open Items
 
-1. ~~Confirm: label glossary lives as a standalone doc in dev-infrastructure referenced by all workflow-compatible repos~~ **Confirmed** — see [specs/labels.md](specs/labels.md)
+1. ~~Confirm: label glossary lives as a standalone doc in dev-infrastructure referenced by all workflow-compatible repos~~ **Confirmed**, then superseded — the glossary now lives upstream in agent-dev-kit, see [.agents/agent-dev-kit/specs/labels.md](.agents/agent-dev-kit/specs/labels.md)
 2. ~~Choose first deliverable to draft: workflow spec vs. LinkedIn article~~ **Decided** — workflow spec first; drafted in [specs/github-task-workflow.md](specs/github-task-workflow.md), pending review
 3. LinkedIn article title (candidates proposed, none selected)
 4. Demo customer names

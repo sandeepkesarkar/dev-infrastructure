@@ -34,6 +34,31 @@ Adopt [Omnigent](https://github.com/omnigent-ai/omnigent) (alpha, v0.3.0) on the
 - **Review scope is a versioned, extensible checklist inside Polly's own `cross-review` skill — not a separate file she has to be told to load.** Polly only loads skills she knows by name (`investigate`, `fanout`, `cross-review`); an unrelated `pr-review.md` she was never instructed to open would silently do nothing. So the actual mechanism is a `dev-infrastructure`-local override of the bundled `omnigent/polly/skills/cross-review/SKILL.md`, adding a "Standing review dimensions" section (Engineering, Security to start) applied on every dispatch alongside the task's own acceptance contract. New dimensions are added by editing that one section — no change to Polly's config or dispatch logic.
 - **The same override pins the reviewer to `codex`.** Upstream `cross-review` picks *any* available different-vendor worker. On this machine that roster already includes `codex`, `cursor`, and `hermes` (all installed, all on `PATH`) — so without pinning, review could just as easily land on Cursor or Hermes as Codex. The override dispatches `codex` specifically, falling back explicitly (never silently) to another available vendor only when Codex was the implementer or isn't in that run's roster.
 
+## Update — 2026-08-21, agent-dev-kit extraction
+
+This workflow's generic parts (Polly's `config.yaml`, the seven `agents/`
+bundles, and the three skills) were extracted into their own repo,
+[agent-dev-kit](https://github.com/sandeepkesarkar/agent-dev-kit), and this
+repo now consumes it via a `.agents/agent-dev-kit` git submodule plus
+per-skill `~/.agents/skills/` symlinks (see `omnigent/README.md` for the
+full wiring and why). Two things below are now stale as a result and are
+corrected here rather than rewritten in place, so the historical decision
+record above stays intact:
+
+- The "`dev-infrastructure`-local override of the bundled
+  `omnigent/polly/skills/cross-review/SKILL.md`" described in the Decisions
+  bullets above and in FR-011/Architecture item 4 no longer exists as a
+  local override — diffing it against agent-dev-kit's extracted version
+  confirmed the Codex-pinning and Standing-review-dimensions content is now
+  the generic upstream default, not a local delta. `omnigent/polly/skills` is
+  now a symlink into the submodule.
+- The **cost_budget policy** (FR-006, Rollout Phase below) is still a real,
+  live local delta — agent-dev-kit ships without one on purpose. It now lives
+  in `omnigent/polly/config.yaml`'s `guardrails.policies.cost_budget` block,
+  which is a synced copy of the submodule's `config.yaml` (not a symlink),
+  specifically so this delta has somewhere to live — see `omnigent/README.md`
+  for why no override mechanism exists to avoid that copy.
+
 ## Architecture
 
 ### Components
