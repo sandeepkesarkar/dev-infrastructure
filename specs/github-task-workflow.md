@@ -45,8 +45,8 @@ Given a spec being decomposed, each resulting issue's deliverable must be review
 ## Functional Requirements
 
 - **FR-001**: The decomposition agent MUST propose an issue breakdown from a spec and MUST NOT create any issue without explicit human approval of the breakdown.
-- **FR-002**: Every issue MUST carry at least one type label (`spec`, `code`, `docs`, `content`) plus applicable workflow-state labels (`agent-ready`, `needs-approval`) — see [labels.md](labels.md).
-- **FR-003**: The label glossary MUST be centralized in `dev-infrastructure/specs/labels.md`; other workflow-compatible repos reference it rather than keeping their own copy.
+- **FR-002**: Every issue MUST carry at least one type label (`spec`, `code`, `docs`, `content`) plus applicable workflow-state labels (`agent-ready`, `needs-approval`) — see [agent-dev-kit's labels.md](../.agents/agent-dev-kit/specs/labels.md).
+- **FR-003**: The label glossary MUST be centralized in `agent-dev-kit/specs/labels.md` (this repo consumes it via the `.agents/agent-dev-kit` submodule, and no longer keeps its own copy); other workflow-compatible repos reference the same upstream copy.
 - **FR-004**: The worker agent MUST run on the Mac Mini, polling for `agent-ready` issues on an hourly cadence, with a manual trigger also supported for on-demand checks. Concrete implementation: a `launchd` job firing Omnigent's `poller` agent, which dispatches Polly per issue — see [omnigent-setup.md](omnigent-setup.md) (Omnigent's own scheduled-tasks feature was tried first and abandoned there for a documented reason).
 - **FR-005**: All merges MUST be performed by a human. No automated merging, in any repo, for any issue type.
 - **FR-006**: Every PR from a worker agent MUST include: a one-line summary comment on the source issue, a full PR description, tests for any code change, and Mermaid diagrams wherever the change benefits from one.
@@ -59,7 +59,7 @@ Given a spec being decomposed, each resulting issue's deliverable must be review
 ## Key Entities
 
 - **Issue** — unit of work; carries type + state labels, acceptance criteria, and a link back to the spec it was decomposed from.
-- **Label glossary** — canonical label list and meaning; single source of truth in `specs/labels.md`.
+- **Label glossary** — canonical label list and meaning; single source of truth in [agent-dev-kit's specs/labels.md](../.agents/agent-dev-kit/specs/labels.md), consumed here via the `.agents/agent-dev-kit` submodule.
 - **Worker agent** — the polling process on the Mac Mini that claims `agent-ready` issues and produces PRs.
 - **Decomposition skill** — turns an approved spec into a proposed issue breakdown; nothing is created until the human approves it.
 

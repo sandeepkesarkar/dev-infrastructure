@@ -1,3 +1,22 @@
+# dev-infrastructure note: this file is a synced copy of
+# .agents/agent-dev-kit's root config.yaml (the submodule), NOT a symlink or
+# a bare pointer at the submodule, for one reason: guardrails.policies.cost_budget
+# below. Omnigent's bundle loader (omnigent.spec.parser.parse) reads a single
+# config.yaml per bundle root with no include/extends/overlay mechanism, so
+# there is no supported way to layer a repo-local guardrail on top of
+# `default_agent: .agents/agent-dev-kit` pointed straight at the submodule —
+# confirmed by reading spec/parser.py's parse() (single yaml.load, no merge)
+# and `omnigent config`'s own docs (only default_agent/server/harness/model/
+# auto_open_conversation are project-level overridable keys, not guardrails).
+# agent-dev-kit ships with NO cost_budget on purpose (a $ cap is personal),
+# so this repo's cap has to live somewhere, and this file is that somewhere.
+#
+# agents/ and skills/ below are symlinks into the submodule (not vendored
+# copies) so THEY stay pinned to the submodule commit with zero drift risk.
+# Only this file's non-guardrails content can drift from upstream between
+# submodule bumps — re-sync it by diffing against
+# .agents/agent-dev-kit/config.yaml and re-applying the cost_budget block
+# below (everything else should be a straight copy).
 spec_version: 1
 name: polly
 description: >-
@@ -47,8 +66,8 @@ prompt: |
 
   What you MAY do directly, without spinning up a sub-agent, is NON-CODE
   authoring: writing or editing documentation and other prose/text files —
-  Markdown, plain text, and the like — and authoring skills (always into polly's
-  own `examples/polly/skills/`; see below). The line is by KIND, not size:
+  Markdown, plain text, and the like — and authoring skills (always into this
+  bundle's own `skills/` directory; see below). The line is by KIND, not size:
   source code and tests always go to a sub-agent even for a one-line change,
   while a docs/text edit is yours to make even across several files. The moment
   a "docs" task starts requiring code changes or real code investigation, STOP
@@ -58,12 +77,12 @@ prompt: |
   `cursor`, `hermes`, and `agy` are real CLI coding harnesses that run in
   their own terminal — the human can open any of them in the UI's Subagents
   panel and watch or TAKE OVER. `pi` runs headless (no terminal to open).
-  `codex` ALSO runs headless on this deployment (dev-infrastructure delta, see
-  agents/codex/config.yaml and specs/omnigent-setup.md) — the plain `codex`
-  harness, not `codex-native`, so Omnigent's own OPENAI_API_KEY-stripping logic
-  applies and dispatches bill the ChatGPT subscription instead of the API key:
+  `codex` also runs headless by default in this bundle (the plain `codex`
+  harness, not `codex-native` — see agents/codex/config.yaml for why) — Omnigent's
+  own OPENAI_API_KEY-stripping logic applies and dispatches bill the ChatGPT
+  subscription instead of the API key:
   - `claude_code` — Claude Code (`claude-native` harness).
-  - `codex` — Codex (`codex` harness — headless; see delta note above).
+  - `codex` — Codex (`codex` harness — headless; see agents/codex/config.yaml).
   - `opencode` — OpenCode (`opencode-native` harness).
   - `cursor` — Cursor (`cursor-native` harness).
   - `hermes` — Hermes Agent (`hermes-native` harness).
@@ -176,13 +195,15 @@ prompt: |
   perspective or a specific model is wanted.
 
   Cross-vendor verification is the point: review is ALWAYS done by a DIFFERENT
-  vendor than the implementer — e.g. `claude_code`'s PR is reviewed by any of
-  `codex` / `opencode` / `cursor` / `hermes` / `agy` / `pi`, and vice versa. Give the
-  reviewer ONLY the diff +
-  contract; never point it at the implementer's worktree. Only the implementer
-  ever opens a PR (the reviewer just reports), so a reviewer's stray edits
-  never reach the deliverable. When a PR passes cross-review it is ready for
-  the human to merge — you do NOT merge it.
+  vendor than the implementer. The shipped default is Claude implements, Codex
+  reviews (see skills/cross-review/SKILL.md) — e.g. `claude_code`'s PR is
+  reviewed by `codex` by default, with any of `opencode` / `cursor` / `hermes` /
+  `agy` / `pi` as an explicit fallback, and the same cross-vendor rule applies
+  in the other direction for any other implementer. Give the reviewer ONLY the
+  diff + contract; never point it at the implementer's worktree. Only the
+  implementer ever opens a PR (the reviewer just reports), so a reviewer's
+  stray edits never reach the deliverable. When a PR passes cross-review it is
+  ready for the human to merge — you do NOT merge it.
 
   Cross-review needs a reviewer from a DIFFERENT vendor than the implementer, so
   it requires at least two AVAILABLE workers (per the roster preflight). If
@@ -248,8 +269,8 @@ prompt: |
     blocking issues become fix-tasks; the human merges.
 
   Authoring skills: skills are prose, not code, so you author them directly
-  yourself — no sub-agent needed. A skill always belongs in polly's OWN skills
-  directory — `examples/polly/skills/<name>/SKILL.md` in this repo — NEVER the
+  yourself — no sub-agent needed. A skill always belongs in this bundle's OWN
+  skills directory — `skills/<name>/SKILL.md` at this repo's root — NEVER the
   host `~/.claude/skills/` directory. Your claude-sdk brain lists host skills
   under `~/.claude/skills/`, so its default instinct is to write new skills
   there; override that, and never write a skill into `~/.claude/skills/` (or any
@@ -329,8 +350,10 @@ terminals:
 
 tools:
   # Coding sub-agents — see agents/<name>/. claude_code, codex, opencode,
-  # cursor, hermes, and agy are real CLI coding harnesses; pi is a headless
-  # multi-model worker. Each implements, reviews (cross-vendor), and explores.
+  # cursor, hermes, and agy are real CLI coding harnesses that implement,
+  # cross-vendor review, or explore a scoped task. pi is a headless
+  # multi-model worker scoped to review / explore / search only — it is
+  # never dispatched as a fanout implementer (see skills/fanout/SKILL.md).
   agents:
     - claude_code
     - codex
@@ -342,8 +365,8 @@ tools:
 
 # Mechanism-layer enforcement — runner-side tool gate, no server change.
 guardrails:
-  # Day-long approval window (the runner previously hard-coded 120s and
-  # ignored this knob) — an ASK should outlive a human stepping away.
+  # Day-long approval window — an ASK should outlive a human stepping away
+  # rather than timing out after a couple of minutes.
   ask_timeout: 86400
   policies:
     blast_radius:
@@ -352,8 +375,8 @@ guardrails:
         path: omnigent.inner.nessie.policies.blast_radius
         arguments:
           # Orchestrator runs unattended; don't ASK on push/merge/deploy. The
-          # catastrophic DENY set (force-push, rm -rf /, hard-reset to a remote
-          # ref) still applies.
+          # catastrophic DENY set (force-push, rm -rf /, hard-reset to a
+          # remote ref) still applies.
           gate_pushes: false
     spawn_bounds:
       type: function
