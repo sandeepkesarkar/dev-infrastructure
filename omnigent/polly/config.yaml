@@ -27,16 +27,6 @@
 # that diffs this file (guardrails.policies deltas normalized out) plus
 # agents/ and skills/ against the submodule, failing on any unexpected
 # difference — not built yet.
-#
-# dev-infrastructure delta #2 — two-worker roster (2026-09-22): only
-# `claude_code` (Claude subscription) and `codex` (ChatGPT subscription,
-# REVIEW ONLY) are declared in tools.agents, and the prompt's roster /
-# routing text is rewritten to match. Upstream's other workers stay vendored
-# under agents/ for re-sync but are undeclared. Why: on 2026-09-21 an
-# overnight run cross-reviewed via `hermes`, whose model config bills
-# Sonnet 5 per-token to the Anthropic API key (~$20) instead of any
-# subscription; `pi` can resolve the same API key. Re-apply this delta on
-# every re-sync.
 
 spec_version: 1
 name: polly
@@ -419,10 +409,15 @@ terminals:
         type: none
 
 tools:
-  # Coding sub-agents — see agents/<name>/. dev-infrastructure delta #2 (see
-  # header): only the two subscription-billed workers are declared.
-  # claude_code implements / explores; codex reviews only. The other
-  # upstream workers stay vendored under agents/ but are NOT declared here.
+  # Coding sub-agents — see agents/<name>/. Only the two subscription-billed
+  # workers are declared: claude_code implements / explores (Claude
+  # subscription login), codex reviews only (ChatGPT subscription login).
+  # The other bundles under agents/ (opencode, cursor, hermes, agy, pi) are
+  # shipped but NOT declared: those harnesses read their own local model
+  # config and can silently bill a per-token API key — e.g. a Hermes
+  # install configured for the Anthropic API made every Polly cross-review
+  # it picked up a pay-per-token call. Declare one here (and restore its
+  # roster/routing text in the prompt) only after checking what it bills.
   agents:
     - claude_code
     - codex
