@@ -88,18 +88,22 @@ diff -rq .agents/agent-dev-kit/skills omnigent/polly/skills
 ```
 
 For `config.yaml`: pull in any upstream changes, then re-apply (or confirm
-still present) the `# dev-infrastructure delta` header comment and the
+still present) both `# dev-infrastructure delta` header comments, the
 `guardrails.policies.{cost_budget,diagnostic_tool_call_logger}` block at
-the end — that's the only intentional divergence to preserve.
+the end, and delta #2 — the two-worker roster (`tools.agents` is only
+`claude_code` + `codex`, and the prompt's roster/routing text says
+`claude_code` implements and `codex` only reviews, with no fallback worker).
 
-For `agents/` and `skills/`: these have no intentional local divergence at
-all (unlike `config.yaml`), so a clean re-sync is just replacing them
-wholesale —
+For `agents/`: no intentional local divergence, so a clean re-sync is just
+replacing it wholesale. For `skills/`: replace wholesale, then re-apply
+delta #2 to `cross-review` (codex pinned, no fallback reviewer), `fanout`
+(`claude_code` only) and `investigate` (`claude_code` only) —
 
 ```bash
 rm -rf omnigent/polly/agents omnigent/polly/skills
 cp -R .agents/agent-dev-kit/agents omnigent/polly/agents
 cp -R .agents/agent-dev-kit/skills omnigent/polly/skills
+# then re-apply delta #2 to the three skills above
 ```
 
 The same `TODO` from the config.yaml re-sync applies here too: nothing yet
